@@ -1,0 +1,36 @@
+# Powercli+EsxCli
+#
+#·         Connect to every ESXi host in specific cluster
+#·         Get list of LUNs used as RDMs
+#·         For each LUN change path policy to FIXED and set perennially reserved flag to true
+# 
+#Assumptions:
+# 
+#·         All ESXi hosts in that cluster have the same password
+#·         All RDMs in that cluster are used in MS Clustering
+#·         Already connected to vCenter (Connect-VIServer "vCenterServer" -User "administrator@vsphere.local" -Password "password")
+# 
+#Script:
+#========================================================================================================
+
+$esxlist = get-cluster "clustername" | get-vmhost
+ 
+foreach($item in $esxlist){
+ 
+Connect-VIServer -Server $item -User root -Password “password”
+ 
+$RDMDisks = Get-VM | Get-HardDisk -DiskType "RawPhysical","RawVirtual" | Select ScsiCanonicalName
+ 
+$esxcli = Get-EsxCli -VMhost $item
+ 
+	foreach($esxcli in Get-EsxCli) {
+        foreach($RDMDisk in $RDMDisks) {
+        $esxcli.storage.nmp.device.set($null,($RDMDisk.ScsiCanonicalName),"VMW_PSP_FIXED")
+        $esxcli.storage.core.device.setconfig($false, ($RDMDisk.ScsiCanonicalName), $true)
+        }
+ 
+    }
+ 
+}
+
+#=========================================================================================================
